@@ -1,4 +1,4 @@
 # login
 a php login using oop
 
-demo: http://ajcloud.rf.gd/projects/login/
+demo: https://ajlato-login.up.railway.app
