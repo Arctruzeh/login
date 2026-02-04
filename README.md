@@ -9,12 +9,14 @@ A simple, secure PHP login and registration system using MySQL.
 - User Login
 - Secure Password Hashing
 - Session Management
-- Protected "Welcome" Page
+- Protected Dashboard (index.php)
+- Password Change Functionality
 - Logout Functionality
+- Clean URLs (no .php extension)
 - Styled with Bootstrap
 
 ## Prerequisites
-- **PHP** (Wait... checks indicate 8.0+ recommended due to syntax, let's say 8.0+)
+- **PHP 8.0+**
 - **MySQL** Database
 
 ## Setup Instructions
@@ -50,6 +52,6 @@ You can easily start the application using the built-in PHP development server.
 
 Run this command in the project root:
 ```bash
-php -S localhost:8000
+php -S localhost:8000 router.php
 ```
 Then open [http://localhost:8000](http://localhost:8000) in your browser.
