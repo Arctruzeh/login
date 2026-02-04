@@ -28,6 +28,7 @@ $mysqli = new mysqli(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME, DB_PORT);
 
 // Check connection
 if($mysqli === false){
-    die("ERROR: Could not connect. " . $mysqli->connect_error);
+    error_log("Connection failed: " . $mysqli->connect_error);
+    die("ERROR: Could not connect to the database. Please try again later.");
 }
 ?>
