@@ -1,11 +1,27 @@
 <?php
-/* Database credentials. Assuming you are running MySQL
-server with default setting (user 'root' with no password) */
-define('DB_SERVER', getenv('MYSQLHOST') ?: 'localhost');
-define('DB_USERNAME', getenv('MYSQLUSER') ?: 'root');
-define('DB_PASSWORD', getenv('MYSQLPASSWORD') ?: '');
-define('DB_NAME', getenv('MYSQLDATABASE') ?: 'demo');
-define('DB_PORT', getenv('MYSQLPORT') ?: 3306);
+/* Database credentials. */
+$url = getenv('MYSQL_URL') ?: getenv('DATABASE_URL');
+
+if ($url) {
+    $dbparts = parse_url($url);
+    $hostname = $dbparts['host'];
+    $username = $dbparts['user'];
+    $password = $dbparts['pass'];
+    $database = ltrim($dbparts['path'], '/');
+    $port = $dbparts['port'];
+} else {
+    $hostname = getenv('MYSQLHOST') ?: 'localhost';
+    $username = getenv('MYSQLUSER') ?: 'root';
+    $password = getenv('MYSQLPASSWORD') ?: '';
+    $database = getenv('MYSQLDATABASE') ?: 'demo';
+    $port = getenv('MYSQLPORT') ?: 3306;
+}
+
+define('DB_SERVER', $hostname);
+define('DB_USERNAME', $username);
+define('DB_PASSWORD', $password);
+define('DB_NAME', $database);
+define('DB_PORT', $port);
 
 /* Attempt to connect to MySQL database */
 $mysqli = new mysqli(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME, DB_PORT);

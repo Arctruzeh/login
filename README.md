@@ -38,13 +38,12 @@ The application uses `config.php` for database connection. It connects automatic
 - Database: `demo`
 - Port: `3306`
 
-**Environment Variables:**
-If deploying, set the following variables in your hosting environment:
-- `MYSQLHOST`
-- `MYSQLUSER`
-- `MYSQLPASSWORD`
-- `MYSQLDATABASE`
-- `MYSQLPORT`
+**Deployment (Railway):**
+The easiest way to connect is to use the single connection URL variable.
+1. Add a new variable to your service: `MYSQL_URL`
+2. Set the value to Reference the MySQL service URL (e.g. `${{ MySQL.MYSQL_URL }}`)
+
+*Alternatively, you can still specify individual variables (MYSQLHOST, MYSQLUSER, etc) if preferred.*
 
 ### 3. Running Locally
 You can easily start the application using the built-in PHP development server.
