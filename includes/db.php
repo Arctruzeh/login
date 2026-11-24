@@ -9,31 +9,70 @@ if (PHP_SAPI !== 'cli' && realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? ''))
 }
 
 /**
+ * Retry transient MySQLi connection errors (e.g. cold-starting sleeping DB).
+ *
+ * @template T
+ * @param callable(): T $connector
+ * @return T
+ */
+function db_connect_with_retry(
+    callable $connector,
+    int $maxAttempts = 6,
+    int $delayUs = 1_000_000,
+    ?callable $sleep = null,
+): mixed {
+    $transientCodes = [2002, 2003, 2006];
+    $attempt = 0;
+
+    while (true) {
+        $attempt++;
+        try {
+            return $connector();
+        } catch (mysqli_sql_exception $e) {
+            if ($attempt >= $maxAttempts || !in_array((int) $e->getCode(), $transientCodes, true)) {
+                throw $e;
+            }
+            if ($sleep !== null) {
+                $sleep($delayUs);
+            } elseif ($delayUs > 0) {
+                usleep($delayUs);
+            }
+        }
+    }
+}
+
+/**
  * Open a MySQLi connection using strict exception reporting and utf8mb4 charset.
  *
  * @param array{host: string, port: int, database: string, username: string, password: string}|null $config
  */
-function db_connect(?array $config = null): mysqli
+function db_connect(?array $config = null, int $maxAttempts = 6, int $delayUs = 1_000_000): mysqli
 {
     $cfg = $config ?? db_config_from_env();
 
     mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-    $db = mysqli_connect(
-        $cfg['host'],
-        $cfg['username'],
-        $cfg['password'],
-        $cfg['database'],
-        $cfg['port']
+    return db_connect_with_retry(
+        static function () use ($cfg): mysqli {
+            $db = mysqli_connect(
+                $cfg['host'],
+                $cfg['username'],
+                $cfg['password'],
+                $cfg['database'],
+                $cfg['port']
+            );
+
+            if (!$db instanceof mysqli) {
+                throw new RuntimeException('Failed to connect to MySQL database.');
+            }
+
+            mysqli_set_charset($db, 'utf8mb4');
+
+            return $db;
+        },
+        $maxAttempts,
+        $delayUs,
     );
-
-    if (!$db instanceof mysqli) {
-        throw new RuntimeException('Failed to connect to MySQL database.');
-    }
-
-    mysqli_set_charset($db, 'utf8mb4');
-
-    return $db;
 }
 
 /**
