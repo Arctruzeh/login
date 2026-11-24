@@ -1,0 +1,35 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: login_app
+    ports:
+      - "8081:8000"
+    environment:
+      MYSQL_URL: mysql://login_user:login_pass@db:3306/demo
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mysql:8.4
+    container_name: login_db
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: demo
+      MYSQL_USER: login_user
+      MYSQL_PASSWORD: login_pass
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "login_user", "-plogin_pass"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  db_data:

@@ -1,148 +1,67 @@
 <?php
-// Initialize the session
-session_start();
- 
-// Check if the user is already logged in, if yes then redirect him to welcome page
-if(isset($_SESSION["loggedin"]) && $_SESSION["loggedin"] === true){
-    header("location: ./");
-    exit;
-}
- 
-// Include config file
-require_once "config.php";
- 
-// Define variables and initialize with empty values
-$username = $password = "";
-$username_err = $password_err = "";
 
-// Generate CSRF token if not exists
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
- 
-// Processing form data when form is submitted
-if($_SERVER["REQUEST_METHOD"] == "POST"){
+declare(strict_types=1);
 
-    // Validate CSRF token
-    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
-        die("CSRF validation failed");
-    }
- 
-    // Check if username is empty
-    if(empty(trim($_POST["username"]))){
-        $username_err = "Please enter username.";
-    } else{
-        $username = trim($_POST["username"]);
-    }
-    
-    // Check if password is empty
-    if(empty(trim($_POST["password"]))){
-        $password_err = "Please enter your password.";
-    } else{
-        $password = trim($_POST["password"]);
-    }
-    
-    // Validate credentials
-    if(empty($username_err) && empty($password_err)){
-        // Prepare a select statement
-        $sql = "SELECT id, username, password FROM users WHERE username = ?";
-        
-        if($stmt = $mysqli->prepare($sql)){
-            // Bind variables to the prepared statement as parameters
-            $stmt->bind_param("s", $param_username);
-            
-            // Set parameters
-            $param_username = $username;
-            
-            // Attempt to execute the prepared statement
-            if($stmt->execute()){
-                // Store result
-                $stmt->store_result();
-                
-                // Check if username exists, if yes then verify password
-                if($stmt->num_rows == 1){                    
-                    // Bind result variables
-                    $stmt->bind_result($id, $username, $hashed_password);
-                    if($stmt->fetch()){
-                        if(password_verify($password, $hashed_password)){
-                            // Password is correct, so start a new session
-                            session_start();
-                            session_regenerate_id(true);
-                            
-                            // Store data in session variables
-                            $_SESSION["loggedin"] = true;
-                            $_SESSION["id"] = $id;
-                            $_SESSION["username"] = $username;                            
-                            
-                            // Redirect user to welcome page
-                            header("location: ./");
-                        } else{
-                            // Display an error message if password is not valid
-                            $password_err = "The password you entered was not valid.";
-                        }
-                    }
-                } else{
-                    // Display an error message if username doesn't exist
-                    $username_err = "No account found with that username.";
-                }
-            } else{
-                echo "Oops! Something went wrong. Please try again later.";
-            }
+require_once __DIR__ . '/vendor/autoload.php';
+
+session_init();
+
+if (auth_is_logged_in($_SESSION)) {
+    send_redirect('./');
+}
+
+$username = '';
+$errors = [];
+$flash = flash_consume($_SESSION, 'status');
+
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    $db = null;
+    $getDb = static function () use (&$db): mysqli {
+        if (!$db instanceof mysqli) {
+            $db = db_connect();
         }
-        
-        // Close statement
-        $stmt->close();
+        return $db;
+    };
+
+    try {
+        $result = handle_login_submission(
+            $_POST,
+            $_SESSION,
+            static fn (string $user): ?array => db_find_user_by_username($getDb(), $user),
+            static function (): void {
+                session_regenerate_id(true);
+            },
+        );
+    } catch (Throwable $e) {
+        error_log('Login error: ' . $e->getMessage());
+        http_response_code(500);
+        echo render_error_page(500, 'An unexpected error occurred. Please try again later.');
+        exit;
+    } finally {
+        if ($db instanceof mysqli) {
+            mysqli_close($db);
+        }
     }
-    
-    // Close connection
-    $mysqli->close();
+
+    if ($result['status'] === 302 && $result['redirect'] !== null) {
+        send_redirect($result['redirect']);
+    }
+
+    if ($result['status'] === 403) {
+        http_response_code(403);
+        echo render_error_page(403, $result['error_message'] ?? 'Forbidden');
+        exit;
+    }
+
+    http_response_code($result['status']);
+    $username = $result['username'];
+    $errors = $result['errors'];
 }
-?>
- 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Login</title>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.css">
-    <style type="text/css">
-        body{ font: 14px sans-serif; }
-        .wrapper{ width: 350px; padding: 20px; }
-    </style>
-</head>
-<body>
-    <div class="wrapper">
-        <h2>Login</h2>
-        <p>Please fill in your credentials to login.</p>
-        <form action="<?php echo htmlspecialchars($_SERVER["REQUEST_URI"]); ?>" method="post">
-            <div class="form-group <?php echo (!empty($username_err)) ? 'has-error' : ''; ?>">
-                <label>Username</label>
-                <input type="text" name="username" class="form-control" value="<?php echo $username; ?>">
-                <span class="help-block"><?php echo $username_err; ?></span>
-            </div>    
-            <div class="form-group <?php echo (!empty($password_err)) ? 'has-error' : ''; ?>">
-                <label>Password</label>
-                <input type="password" name="password" class="form-control">
-                <span class="help-block"><?php echo $password_err; ?></span>
-            </div>
-            <div class="form-group">
-                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-                <input type="submit" class="btn btn-primary" value="Login">
-            </div>
-            <p>Don't have an account? <a href="register">Sign up now</a>.</p>
-        </form>
-    </div>    
-    <script data-slug="login">
-        (function() {
-            var slug = document.currentScript.getAttribute('data-slug');
-            var link = document.createElement('a');
-            link.href = 'https://ajlato.com/projects/' + slug;
-            link.innerHTML = '← Back to Portfolio';
-            link.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: #222; color: #fff; padding: 10px 15px; border-radius: 5px; text-decoration: none; font-family: system-ui, sans-serif; font-size: 14px; z-index: 10000; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: transform 0.2s;';
-            link.onmouseover = function() { link.style.transform = 'scale(1.05)'; };
-            link.onmouseout = function() { link.style.transform = 'scale(1)'; };
-            document.body.appendChild(link);
-        })();
-    </script>
-</body>
-</html>
+
+echo render_page('login', [
+    'title' => 'Login',
+    'csrfToken' => csrf_token($_SESSION),
+    'username' => $username,
+    'errors' => $errors,
+    'flash' => $flash,
+]);

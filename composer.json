@@ -1,6 +1,31 @@
 {
+    "name": "ajlato/login",
+    "description": "Modular Procedural PHP & MySQLi Authentication System",
+    "type": "project",
     "require": {
         "php": ">=8.0",
         "ext-mysqli": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.5"
+    },
+    "autoload": {
+        "files": [
+            "includes/config.php",
+            "includes/db.php",
+            "includes/session.php",
+            "includes/csrf.php",
+            "includes/validation.php",
+            "includes/auth.php",
+            "includes/view.php"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit"
     }
 }

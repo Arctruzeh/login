@@ -1,129 +1,60 @@
 <?php
-// Initialize the session
-session_start();
- 
-// Check if the user is logged in, otherwise redirect to login page
-if(!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true){
-    header("location: login");
-    exit;
-}
- 
-// Include config file
-require_once "config.php";
- 
-// Define variables and initialize with empty values
-$new_password = $confirm_password = "";
-$new_password_err = $confirm_password_err = "";
 
-// Generate CSRF token if not exists (although user is logged in, good practice)
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
- 
-// Processing form data when form is submitted
-if($_SERVER["REQUEST_METHOD"] == "POST"){
+declare(strict_types=1);
 
-    // Validate CSRF token
-    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
-        die("CSRF validation failed");
-    }
- 
-    // Validate new password
-    if(empty(trim($_POST["new_password"]))){
-        $new_password_err = "Please enter the new password.";     
-    } elseif(strlen(trim($_POST["new_password"])) < 6){
-        $new_password_err = "Password must have atleast 6 characters.";
-    } else{
-        $new_password = trim($_POST["new_password"]);
-    }
-    
-    // Validate confirm password
-    if(empty(trim($_POST["confirm_password"]))){
-        $confirm_password_err = "Please confirm the password.";
-    } else{
-        $confirm_password = trim($_POST["confirm_password"]);
-        if(empty($new_password_err) && ($new_password != $confirm_password)){
-            $confirm_password_err = "Password did not match.";
+require_once __DIR__ . '/vendor/autoload.php';
+
+session_init();
+
+if (!auth_is_logged_in($_SESSION)) {
+    send_redirect('login');
+}
+
+$errors = [];
+
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    $db = null;
+    $getDb = static function () use (&$db): mysqli {
+        if (!$db instanceof mysqli) {
+            $db = db_connect();
+        }
+        return $db;
+    };
+
+    try {
+        $result = handle_change_password_submission(
+            $_POST,
+            $_SESSION,
+            static fn (int $userId, string $hash): bool => db_update_user_password($getDb(), $userId, $hash),
+            'session_reset_native',
+        );
+    } catch (Throwable $e) {
+        error_log('Password change error: ' . $e->getMessage());
+        http_response_code(500);
+        echo render_error_page(500, 'An unexpected error occurred. Please try again later.');
+        exit;
+    } finally {
+        if ($db instanceof mysqli) {
+            mysqli_close($db);
         }
     }
-        
-    // Check input errors before updating the database
-    if(empty($new_password_err) && empty($confirm_password_err)){
-        // Prepare an update statement
-        $sql = "UPDATE users SET password = ? WHERE id = ?";
-        
-        if($stmt = $mysqli->prepare($sql)){
-            // Bind variables to the prepared statement as parameters
-            $stmt->bind_param("si", $param_password, $param_id);
-            
-            // Set parameters
-            $param_password = password_hash($new_password, PASSWORD_DEFAULT);
-            $param_id = $_SESSION["id"];
-            
-            // Attempt to execute the prepared statement
-            if($stmt->execute()){
-                // Password updated successfully. Destroy the session, and redirect to login page
-                session_destroy();
-                header("location: login");
-                exit();
-            } else{
-                echo "Oops! Something went wrong. Please try again later.";
-            }
-        }
-        
-        // Close statement
-        $stmt->close();
+
+    if ($result['status'] === 302 && $result['redirect'] !== null) {
+        send_redirect($result['redirect']);
     }
-    
-    // Close connection
-    $mysqli->close();
+
+    if ($result['status'] === 403) {
+        http_response_code(403);
+        echo render_error_page(403, $result['error_message'] ?? 'Forbidden');
+        exit;
+    }
+
+    http_response_code($result['status']);
+    $errors = $result['errors'];
 }
-?>
- 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Change Password</title>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.css">
-    <style type="text/css">
-        body{ font: 14px sans-serif; }
-        .wrapper{ width: 350px; padding: 20px; }
-    </style>
-</head>
-<body>
-    <div class="wrapper">
-        <h2>Change Password</h2>
-        <p>Please fill out this form to change your password.</p>
-        <form action="<?php echo htmlspecialchars($_SERVER["REQUEST_URI"]); ?>" method="post"> 
-            <div class="form-group <?php echo (!empty($new_password_err)) ? 'has-error' : ''; ?>">
-                <label>New Password</label>
-                <input type="password" name="new_password" class="form-control" value="<?php echo $new_password; ?>">
-                <span class="help-block"><?php echo $new_password_err; ?></span>
-            </div>
-            <div class="form-group <?php echo (!empty($confirm_password_err)) ? 'has-error' : ''; ?>">
-                <label>Confirm Password</label>
-                <input type="password" name="confirm_password" class="form-control">
-                <span class="help-block"><?php echo $confirm_password_err; ?></span>
-            </div>
-            <div class="form-group">
-                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-                <input type="submit" class="btn btn-primary" value="Submit">
-                <a class="btn btn-link" href="./">Cancel</a>
-            </div>
-        </form>
-    </div>    
-    <script data-slug="login">
-        (function() {
-            var slug = document.currentScript.getAttribute('data-slug');
-            var link = document.createElement('a');
-            link.href = 'https://ajlato.com/projects/' + slug;
-            link.innerHTML = '← Back to Portfolio';
-            link.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: #222; color: #fff; padding: 10px 15px; border-radius: 5px; text-decoration: none; font-family: system-ui, sans-serif; font-size: 14px; z-index: 10000; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: transform 0.2s;';
-            link.onmouseover = function() { link.style.transform = 'scale(1.05)'; };
-            link.onmouseout = function() { link.style.transform = 'scale(1)'; };
-            document.body.appendChild(link);
-        })();
-    </script>
-</body>
-</html>
+
+echo render_page('change-password', [
+    'title' => 'Change Password',
+    'csrfToken' => csrf_token($_SESSION),
+    'errors' => $errors,
+]);

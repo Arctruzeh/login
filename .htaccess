@@ -1,4 +1,10 @@
 RewriteEngine On
+
+# Block direct access to internal directories and metadata files
+RewriteRule ^(includes|views|tests|vendor)(/|$) - [F,L]
+RewriteRule ^(composer\.(json|lock)|phpunit\.xml|database\.sql|README\.md)$ - [F,L]
+
+# Enable clean extensionless PHP URLs
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_FILENAME}.php -f
 RewriteRule ^(.*)$ $1.php [L]
