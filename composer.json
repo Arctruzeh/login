@@ -18,6 +18,7 @@
             "includes/csrf.php",
             "includes/validation.php",
             "includes/auth.php",
+            "includes/router.php",
             "includes/view.php"
         ]
     },

@@ -2,6 +2,12 @@
 
 declare(strict_types=1);
 
+if (PHP_SAPI !== 'cli' && realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) === realpath(__FILE__)) {
+    http_response_code(403);
+    header('Content-Type: text/plain; charset=UTF-8');
+    exit('403 Forbidden');
+}
+
 /**
  * @param array<string, mixed> $post
  */

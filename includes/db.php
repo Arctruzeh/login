@@ -2,6 +2,12 @@
 
 declare(strict_types=1);
 
+if (PHP_SAPI !== 'cli' && realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) === realpath(__FILE__)) {
+    http_response_code(403);
+    header('Content-Type: text/plain; charset=UTF-8');
+    exit('403 Forbidden');
+}
+
 /**
  * Open a MySQLi connection using strict exception reporting and utf8mb4 charset.
  *

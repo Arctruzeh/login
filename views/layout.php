@@ -1,4 +1,10 @@
-<!DOCTYPE html>
+<?php
+if (PHP_SAPI !== 'cli' && realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) === realpath(__FILE__)) {
+    http_response_code(403);
+    header('Content-Type: text/plain; charset=UTF-8');
+    exit('403 Forbidden');
+}
+?><!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">

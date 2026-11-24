@@ -1,4 +1,10 @@
-<div class="dashboard">
+<?php
+if (PHP_SAPI !== 'cli' && realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) === realpath(__FILE__)) {
+    http_response_code(403);
+    header('Content-Type: text/plain; charset=UTF-8');
+    exit('403 Forbidden');
+}
+?><div class="dashboard">
     <div class="page-header">
         <h1>Hi, <b><?= e($username) ?></b>. Welcome to our site.</h1>
     </div>

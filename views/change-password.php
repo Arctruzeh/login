@@ -1,4 +1,10 @@
-<div class="wrapper">
+<?php
+if (PHP_SAPI !== 'cli' && realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) === realpath(__FILE__)) {
+    http_response_code(403);
+    header('Content-Type: text/plain; charset=UTF-8');
+    exit('403 Forbidden');
+}
+?><div class="wrapper">
     <h2>Change Password</h2>
     <p>Please fill out this form to change your password.</p>
 
